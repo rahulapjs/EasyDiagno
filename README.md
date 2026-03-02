@@ -14,10 +14,160 @@ A Flutter application designed to assist users with symptom checking and locatin
 ## Tech Stack
 
 -   **Frontend:** Flutter (Dart)
--   **Backend:** Firebase (Authentication, Firestore for data storage)
--   **Machine Learning:** Python (for the symptom checker model, likely integrated via an API)
+-   **Backend:** Flask (Python API), Firebase (Authentication)
+-   **Database:** MySQL
+-   **Machine Learning:** Python (k-Nearest Neighbors model)
 -   **Location Services:** Integration for finding nearby hospitals.
 -   **HTTP:** For API communication.
+
+
+## System Architecture
+
+### High-Level Overview
+```mermaid
+graph TD
+    User((User))
+    HospitalAdmin((Hospital Admin))
+    SystemAdmin((System Admin))
+    
+    subgraph "EasyDiagno System"
+        MobileApp["Flutter Mobile Application"]
+        FlaskBackend["Flask Python API"]
+        MySQL[(MySQL Database)]
+        MLModel["kNN Disease Model"]
+        Firebase[(Firebase Auth)]
+    end
+    
+    User <--> MobileApp
+    HospitalAdmin <--> MobileApp
+    SystemAdmin <--> MobileApp
+    
+    MobileApp <--> FlaskBackend
+    MobileApp <--> Firebase
+    FlaskBackend <--> MySQL
+    FlaskBackend <--> MLModel
+```
+
+### Symptom Check Workflow
+```mermaid
+sequenceDiagram
+    participant User
+    participant App as Flutter App
+    participant API as Flask Backend
+    participant ML as ML Model
+    
+    User->>App: Inputs symptoms (text)
+    App->>API: GET /check?sym=symptoms
+    API->>ML: make_pred(knn, symptoms)
+    ML-->>API: Predicted Disease
+    API-->>App: { 'task': 'disease_name' }
+    App-->>User: Displays Diagnosis & Suggestions
+```
+
+### Hospital Registration Process
+```mermaid
+graph LR
+    H[Hospital Submits Details] --> P[Status: Pending]
+    P --> A{Admin Review}
+    A -->|Approve| AP[Status: Approved / Login Active]
+    A -->|Reject| RJ[Status: Rejected]
+```
+
+### Authentication Flow
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant A as Flutter App
+    participant F as Firebase Auth
+    participant B as Flask Backend
+    participant D as MySQL Database
+
+    U->>A: Enter Email & Password
+    A->>F: signInWithEmailAndPassword()
+    F-->>A: User Credential / Error
+    alt success
+        A->>F: check emailVerified
+        alt verified
+            A->>B: GET /login_check
+            B->>D: SELECT user type
+            D-->>B: User Data
+            B-->>A: { 'task': 'success', 'type': 'user/hospital/admin' }
+            A->>U: Redirect to Dashboard
+        else not verified
+            A->>U: Show Verification Message
+        end
+    else failure
+        A->>U: Show Error (Invalid Credentials)
+    end
+```
+
+### Hospital Locator Flow
+```mermaid
+graph TD
+    Start([User opens Hospital Finder]) --> FetchSpecs[Fetch Specializations from Backend]
+    FetchSpecs --> ShowList[Display Specialization Cards]
+    ShowList --> SelectSpec{User selects Specialization?}
+    SelectSpec -->|Yes| FetchHosp[Request Hospitals by Specialization]
+    FetchHosp --> ShowHospitals[Display Filtered Hospital List]
+    ShowHospitals --> ViewDetail[View Hospital Details & Doctors]
+    ViewDetail --> End([End])
+```
+
+### Data Model (ER Diagram)
+```mermaid
+erDiagram
+    LOGIN ||--o| USER_PROFILE : "has"
+    LOGIN ||--o| HOSPITAL_DETAILS : "has"
+    HOSPITAL_DETAILS ||--o{ DOCTOR_DETAILS : "contains"
+    SPECIALISATION ||--o{ DOCTOR_DETAILS : "categorizes"
+
+    LOGIN {
+        int id PK
+        string email
+        string password
+        string type "user/hospital/admin/pending"
+    }
+
+    USER_PROFILE {
+        int id PK
+        int login_id FK
+        string name
+        string phone
+        string gender
+        float height
+        float weight
+        string pincode
+        string address
+    }
+
+    HOSPITAL_DETAILS {
+        int id PK
+        int login_id FK
+        string hospital_name
+        string licence_number
+        string phone
+        string address
+        string city
+        string state
+        string country
+        string image_path
+    }
+
+    DOCTOR_DETAILS {
+        int id PK
+        int hospital_id FK
+        int specialisation_id FK
+        string doctor_name
+        string qualification
+        string available_days
+    }
+
+    SPECIALISATION {
+        int id PK
+        string name
+        string description
+    }
+```
 
 ## Getting Started
 
